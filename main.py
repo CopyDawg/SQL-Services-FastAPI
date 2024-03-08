@@ -28,10 +28,10 @@ def cancelledOrders(initialDate: str, finalDate: str):
         """
 
         with engine.connect() as conn:
-            result = conn.execute(text(sql_query))
-            results_list = []
+            response = conn.execute(text(sql_query))
+            response_list = []
 
-            for row in result:
+            for row in response:
                 client_name = row[0]
                 product = row[1]
                 quantity = row[2]
@@ -46,8 +46,8 @@ def cancelledOrders(initialDate: str, finalDate: str):
                     "total_price": price
                 }
 
-                # Searchs if theres already a client with the same name in results_list
-                existing_client = next((client for client in results_list if client["client_name"] == client_name), None)
+                # Searchs if theres already a client with the same name in response_list
+                existing_client = next((client for client in response_list if client["client_name"] == client_name), None)
 
                 if existing_client:
                     existing_client["order"].append(order)
@@ -58,13 +58,13 @@ def cancelledOrders(initialDate: str, finalDate: str):
                         "comments": comments,
                         "order": [order]
                     }
-                    results_list.append(new_client)
+                    response_list.append(new_client)
         
-            results_count = len(results_list)
+            response_count = len(response_list)
 
         json_response = {
-            "results": results_count,
-            "response": results_list
+            "results": response_count,
+            "response": response_list
         }
 
         return JSONResponse(json_response)
@@ -88,10 +88,10 @@ def creditUsed():
     """
     try:
         with engine.connect() as conn:
-            result = conn.execute(text(sql_query))
-            results_list = []
+            response = conn.execute(text(sql_query))
+            response_list = []
 
-            for row in result:
+            for row in response:
                 client_name = row[0]
                 last_order = str(row[1])
                 credit_limit = float(row[2])
@@ -106,13 +106,13 @@ def creditUsed():
                     "credit_used_percentage": credit_used_percentage
                 }
 
-                results_list.append(client_data)
+                response_list.append(client_data)
 
-            results_count = len(results_list)
+            response_count = len(response_list)
 
         json_response = {
-            "results": results_count,
-            "response": results_list
+            "results": response_count,
+            "response": response_list
         }
 
         return JSONResponse(json_response)
@@ -134,11 +134,11 @@ def salesByCountry():
     """
     try:
         with engine.connect() as conn:
-            result = conn.execute(text(sql_query))
+            response = conn.execute(text(sql_query))
 
             response_dict = defaultdict(list)
 
-            for row in result:
+            for row in response:
                 country = row[0]
                 year = int(row[1])
                 total_sales = float(row[2])
@@ -151,10 +151,10 @@ def salesByCountry():
                 response_dict[country].append(sales_by_year)
 
             response_list = [{"country": country, "sales_by_year": sales} for country, sales in response_dict.items()]
-            results_count = len(response_list)
+            response_count = len(response_list)
 
         json_response = {
-            "results": results_count,
+            "results": response_count,
             "response": response_list
         }
 
@@ -178,10 +178,10 @@ def creditLimit():
                 credit_limit = float(credit_limit)
                 response_list.append({"full_name": full_name, "creditLimit": credit_limit})
 
-            results_count = len(response_list)
+            response_count = len(response_list)
 
         json_response = {
-            "results": results_count,
+            "results": response_count,
             "response": response_list
         }
 
