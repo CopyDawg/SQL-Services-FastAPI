@@ -1,7 +1,6 @@
-from fastapi import FastAPI;
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
-from datetime import datetime
 from collections import defaultdict
 
 app = FastAPI();
@@ -72,22 +71,22 @@ def cancelledOrders(initialDate: str, finalDate: str):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/credit_limit")
-def creditLimit():
+@app.get("/credit_used")
+def creditUsed():
+    sql_query = """
+    SELECT 
+        CONCAT(c.contactFirstName, ' ', c.contactLastName) AS full_name,
+        MAX(o.orderDate) AS last_order_date,
+        c.creditLimit AS credit_limit,
+        SUM(DISTINCT p.amount) AS credit_used,
+        CAST((SUM(DISTINCT p.amount) / c.creditLimit) * 100 AS UNSIGNED) AS credit_used_percentage
+    FROM customers c
+    JOIN payments p ON c.customerNumber = p.customerNumber
+    JOIN orders o ON c.customerNumber = o.customerNumber
+    GROUP BY c.customerNumber
+    HAVING (SUM(DISTINCT p.amount) / c.creditLimit) * 100 >= 80;
+    """
     try:
-        sql_query = """
-        SELECT 
-            CONCAT(c.contactFirstName, ' ', c.contactLastName) AS full_name,
-            MAX(o.orderDate) AS last_order_date,
-            c.creditLimit AS credit_limit,
-            SUM(DISTINCT p.amount) AS credit_used,
-            CAST((SUM(DISTINCT p.amount) / c.creditLimit) * 100 AS UNSIGNED) AS credit_used_percentage
-        FROM customers c
-        JOIN payments p ON c.customerNumber = p.customerNumber
-        JOIN orders o ON c.customerNumber = o.customerNumber
-        GROUP BY c.customerNumber
-        HAVING (SUM(DISTINCT p.amount) / c.creditLimit) * 100 >= 80;
-        """
         with engine.connect() as conn:
             result = conn.execute(text(sql_query))
             results_list = []
@@ -123,17 +122,17 @@ def creditLimit():
     
 @app.get("/sales_by_country")
 def salesByCountry():
+    sql_query = """
+    SELECT 
+        c.country,
+        YEAR(o.orderDate) AS year,
+        SUM(od.quantityOrdered * od.priceEach) AS total_sales
+    FROM customers c
+    JOIN orders o ON c.customerNumber = o.customerNumber
+    JOIN orderdetails od ON o.orderNumber = od.orderNumber
+    GROUP BY c.country, YEAR(o.orderDate);
+    """
     try:
-        sql_query = """
-        SELECT 
-            c.country,
-            YEAR(o.orderDate) AS year,
-            SUM(od.quantityOrdered * od.priceEach) AS total_sales
-        FROM customers c
-        JOIN orders o ON c.customerNumber = o.customerNumber
-        JOIN orderdetails od ON o.orderNumber = od.orderNumber
-        GROUP BY c.country, YEAR(o.orderDate);
-        """
         with engine.connect() as conn:
             result = conn.execute(text(sql_query))
 
@@ -154,12 +153,43 @@ def salesByCountry():
             response_list = [{"country": country, "sales_by_year": sales} for country, sales in response_dict.items()]
             results_count = len(response_list)
 
-            json_response = {
-                "results": results_count,
-                "response": response_list
-            }
+        json_response = {
+            "results": results_count,
+            "response": response_list
+        }
 
-            return JSONResponse(json_response)
+        return JSONResponse(json_response)
     
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+    
+@app.get("/credit_limit")
+def creditLimit():
+
+    sql_query = "SELECT CONCAT(contactFirstName, ' ', contactLastName) AS full_name, creditLimit FROM customers;"
+
+    try:
+        with engine.connect() as conn:
+            response = conn.execute(text(sql_query))
+            response_list = []
+
+            for row in response:
+                full_name, credit_limit = row
+                credit_limit = float(credit_limit)
+                response_list.append({"full_name": full_name, "creditLimit": credit_limit})
+
+            results_count = len(response_list)
+
+        json_response = {
+            "results": results_count,
+            "response": response_list
+        }
+
+        return JSONResponse(json_response)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.put("/rise_credit_limit")
+def riseCreditLimit():
+    return JSONResponse({"Hello":"world"})
