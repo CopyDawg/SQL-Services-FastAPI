@@ -1,12 +1,17 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from sqlalchemy import create_engine, text
 from collections import defaultdict
+import random
+import string
+from sqlalchemy import create_engine, text
+import sqlalchemy as db
 
 app = FastAPI();
 
 DATABASE_URL = "mysql+mysqldb://root:12345Qq!@localhost:3306/classicmodels"
 engine = create_engine(DATABASE_URL)
+metadata = db.MetaData()
+metadata.reflect(bind=engine)
 
 @app.get("/cancelled_orders/{initialDate}/{finalDate}")
 def cancelledOrders(initialDate: str, finalDate: str):
@@ -39,7 +44,6 @@ def cancelledOrders(initialDate: str, finalDate: str):
                 cancel_date = str(row[4]) 
                 comments = row[5]
 
-                # Creates a dict for each row
                 order = {
                     "product": product,
                     "quantity": quantity,
@@ -119,7 +123,7 @@ def creditUsed():
     
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-    
+
 @app.get("/sales_by_country")
 def salesByCountry():
     sql_query = """
@@ -162,10 +166,9 @@ def salesByCountry():
     
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-    
+
 @app.get("/credit_limit")
 def creditLimit():
-
     sql_query = "SELECT CONCAT(contactFirstName, ' ', contactLastName) AS full_name, creditLimit FROM customers;"
 
     try:
@@ -189,7 +192,50 @@ def creditLimit():
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-
 @app.put("/rise_credit_limit")
 def riseCreditLimit():
-    return JSONResponse({"Hello":"world"})
+    sql_query = "UPDATE customers SET creditLimit = creditLimit * 1.05 WHERE customerNumber > 0;"
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(sql_query))
+            conn.commit()
+        
+        return JSONResponse({"message": "Credit limit increased by 5% for all customers"})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.put("/decrease_credit_limit")
+def decreaseCreditLimit():
+    sql_query = "UPDATE customers SET creditLimit = creditLimit / 1.05 WHERE customerNumber > 0;"
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(sql_query))
+            conn.commit()
+        
+        return JSONResponse({"message": "Credit limit decreased by 5% for all customers"})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/new_product")
+def newProduct():
+    product_table = metadata.tables['products']
+    random_digits = ''.join(random.choices(string.digits, k=4))
+
+    insert_prod = db.insert(product_table).values(  productCode = f"S00_{random_digits}",
+                                                    productName="Added product",
+                                                    productLine="Planes",
+                                                    productScale="1:1",
+                                                    productVendor="Data Warehouse",
+                                                    productDescription="Just a dummy record for inserting endpoint",
+                                                    quantityInStock=100,
+                                                    buyPrice=25.00,
+                                                    MSRP=25.00 )
+    try:
+        with engine.connect() as conn:
+            conn.execute(insert_prod)
+            conn.commit()
+        return JSONResponse({"message": "Record created"})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
